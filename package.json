@@ -6,7 +6,9 @@
   "directories": {
     "example": "examples"
   },
-  "dependencies": {},
+  "dependencies": {
+    "binascii": "0.0.2"
+  },
   "devDependencies": {
     "benchmark": "^1.0.0",
     "grunt": "^0.4.5",

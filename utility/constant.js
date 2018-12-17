@@ -1,0 +1,5 @@
+export.module = {
+  MAX_CHUNK_LENGTH: 150,
+  MAX_HEX_LENGTH: 300,
+  HEX: '0123456789abcdefABCDEF'
+}
