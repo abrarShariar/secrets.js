@@ -32,13 +32,13 @@ class SecretGenerator {
       throw `Data length must be less than ${constant.MAX_HEX_LENGTH} character`;
     }
 
-    chunked_data.forEach((x) => {
-      if(constant.HEX.indexOf(x) <= -1) {
+    for (let i = 0; i < chunked_data.length; i++) {
+      if(constant.HEX.indexOf(chunked_data[i]) <= -1) {
         throw "Data must contain only hexdigits";
       }
-    });
+    }
 
-    return SecretSharer.share(chunked_data, this.min_consensus_node, this.total_number_of_node);
+    return SecretSharer.share(chunked_data, this.total_number_of_node, this.min_consensus_node);
   }
 
   get_secrets_from_hex_string (chunked_data) {
@@ -50,7 +50,7 @@ class SecretGenerator {
   }
 
   get_chunk (idx, data_len) {
-    chunked_data = "";
+    let chunked_data = "";
     for(let i=idx; i < Math.min(data_len, idx+constant.MAX_CHUNK_LENGTH); i++) {
       chunked_data += this.data[i];
     }
@@ -63,7 +63,7 @@ class SecretGenerator {
     }
   }
 
-  add_chunk () {
+  add_chunk (chunkSecrets) {
     for (let node = 0; node < this.total_number_of_node; node++) {
       this.secrets[node] = this.secrets[node] + chunkSecrets[node];
     }
@@ -71,7 +71,7 @@ class SecretGenerator {
 
   chunked_text_to_chunked_secret (idx, data_len) {
     let temp_data = this.get_chunk(idx, data_len);
-    hex_temp_data = binascii.hexlify(temp_data);
+    let hex_temp_data = binascii.hexlify(temp_data);
     return this.get_secrets_from_hex_string(hex_temp_data);
   }
 
@@ -87,11 +87,21 @@ class SecretGenerator {
           this.add_caps();
       }
       this.add_chunk(chunkSecrets);
-      return this.secrets;
     }
+    return this.secrets;
+  }
+
+  add_index (secrets) {
+    const filtered_secrets = secrets.map((s, index) => {
+      return String(index + 1) + '-' + s;
+      return s;
+    });
+
+    return filtered_secrets;
   }
 
   run () {
+    // const result = this.add_index(this.get_secrets_from_plain_text());
     return this.get_secrets_from_plain_text();
   }
 }
@@ -108,17 +118,22 @@ class SecretRecoverer {
   }
 
   special_case (secrets) {
+    // console.log("FROM SPECIAL", secrets);
     let temp_data = this.recover_hex_string_secret(secrets)
     let recovered_data = binascii.unhexlify(temp_data);
     return String(recovered_data);
   }
 
   add_pieces_together (total_secrets) {
-    this.data = new Array(total_secrets).fill([], 0);
+    this.data = [];
+    for (let i=0;i<total_secrets;i++) {
+      this.data.push([]);
+    }
+
     for (let i = 0; i < this.secrets.length; i++) {
-      let pieces = str(this.secrets[i]).split('^');
-      for (let j=0; j < total_secrets.length; j++) {
-        this.data[j].append(pieces[j]);
+      let pieces = String(this.secrets[i]).split('^');
+      for (let j=0; j < total_secrets; j++) {
+        this.data[j].push(pieces[j]);
       }
     }
   }
@@ -131,24 +146,30 @@ class SecretRecoverer {
 
   decrypt_whole_message (total_secrets) {
     let recovered_data = "";
-    for (let i = 0;i < total_secrets.length; i++) {
+    for (let i = 0;i < total_secrets; i++) {
       recovered_data += this.decrypt_chunked_message(i);
     }
     return String(recovered_data);
   }
 
   recover_plain_text_secret () {
-    // NEED TO FIX THIS
-    let total_secrets = (String(this.secrets[0]).match(/^/g) || []).length + 1;
+    let total_secrets = String(this.secrets[0]).split('^').length;
+
     if (total_secrets === 1) {
       return this.special_case(this.secrets);
     }
 
     this.add_pieces_together(total_secrets);
+    console.log(this.data);
     return this.decrypt_whole_message(total_secrets);
   }
 
   run () {
     return this.recover_plain_text_secret();
   }
+}
+
+module.exports = {
+  SecretGenerator,
+  SecretRecoverer
 }
